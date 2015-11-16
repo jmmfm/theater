@@ -24,14 +24,11 @@
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network.
 // gateway and subnet are optional:
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-};
-IPAddress ip(192, 168, 1, 177);
-IPAddress myDns(192,168,1, 1);
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 0, 0);
-
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress ip      (192, 168,   1, 177);
+IPAddress myDns   (192, 168,   1,   1);
+IPAddress gateway (192, 168,   1,   1);
+IPAddress subnet  (255, 255,   0,   0);
 
 // telnet defaults to port 23
 EthernetServer server(23);
@@ -41,7 +38,7 @@ void setup()
 {
     // initialize digital pin 13 as an output.
     pinMode(13, OUTPUT);
-    
+
     // initialize the ethernet device
     Ethernet.begin(mac, ip, myDns, gateway, subnet);
     // start listening for clients
@@ -49,7 +46,7 @@ void setup()
     // Open serial communications and wait for port to open:
     Serial.begin(9600);
     while (!Serial) {
-      ; // wait for serial port to connect. Needed for native USB port only
+        ; // wait for serial port to connect. Needed for native USB port only
     }
 
     Serial.print("Chat server address:");
@@ -58,7 +55,7 @@ void setup()
 
 char json[500] = "";
 StaticJsonBuffer<200> jsonBuffer;
-
+String received_command = "";
 
 void loop()
 {
@@ -66,7 +63,7 @@ void loop()
     EthernetClient client = server.available();
 
     // when the client sends the first byte, say hello:
-    if (client) 
+    if (client)
     {
         if (!alreadyConnected)
         {
@@ -81,12 +78,13 @@ void loop()
         {
             // read the bytes incoming from the client:
             char thisChar = client.read();
-          
+
             strncat(json, &thisChar, (sizeof(json) - strlen(json)) );
-          
+            received_command += thisChar;
+
             // echo the bytes back to the client:
             server.write(thisChar);
-          
+
             // echo the bytes to the server as well:
             Serial.write(thisChar);
 
@@ -103,22 +101,20 @@ void loop()
 //    double longitude   = root["data"][1];
 // ----------------------------------------------------
 
-            if ( thisChar == '\n' )
+            if ( thisChar == 13 )   // Carriage return
             {
-                JsonObject& root = jsonBuffer.parseObject(json);
-    
+                JsonObject& root = jsonBuffer.parseObject(received_command);
+
                 short port    = root["port"];
                 boolean state = root["command"];
                 Serial.print("Port = ");
                 Serial.print(port);
                 Serial.print(", State = ");
                 Serial.print(state);
+                
                 digitalWrite(port, state);   // turn the LED on (HIGH is the voltage level)
-                json = '';
+                received_command = "";
             }
         }
     }
 }
-
-
-
