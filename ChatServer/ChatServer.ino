@@ -1,5 +1,3 @@
-#include <ArduinoJson.h>
-
 /*
  Chat Server
 
@@ -18,6 +16,7 @@
 
  */
 
+#include <ArduinoJson.h>
 #include <SPI.h>
 #include <Ethernet.h>
 
@@ -88,6 +87,10 @@ void loop()
             // echo the bytes to the server as well:
             Serial.write(thisChar);
 
+
+            int v = thisChar;
+            Serial.print("Int value = ");
+            Serial.println(v);
 // ------------------ JSON EXAMPLE --------------------
 // {
 //     "sensor":"gps",
@@ -101,12 +104,31 @@ void loop()
 //    double longitude   = root["data"][1];
 // ----------------------------------------------------
 
-            if ( thisChar == 13 )   // Carriage return
+            if ( thisChar == 10 )   // Carriage return
             {
+                char json[] = "{\"port\":\"002\",\"command\":1}";
+
+/*
+                JsonObject& root = jsonBuffer.parseObject(json);
+                if (!root.success()) {
+                  Serial.println("parseObject() failed");
+                  return;
+                }
+
+*/              
+                Serial.print("Received command : ");
+                Serial.println(received_command);
                 JsonObject& root = jsonBuffer.parseObject(received_command);
+                if (!root.success()) {
+                  Serial.println("parseObject() failed");
+                  received_command = "";
+                  return;
+                }
+
 
                 short port    = root["port"];
                 boolean state = root["command"];
+                Serial.println("");
                 Serial.print("Port = ");
                 Serial.print(port);
                 Serial.print(", State = ");
