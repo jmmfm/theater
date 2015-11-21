@@ -20,6 +20,10 @@
 #include <SPI.h>
 #include <Ethernet.h>
 
+int led3 = 2;
+int led2 = 3;
+int led1 = 4;
+
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network.
 // gateway and subnet are optional:
@@ -35,8 +39,10 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 
 void setup()
 {
-    // initialize digital pin 13 as an output.
-    pinMode(13, OUTPUT);
+  // initialize the digital pin as an output.
+  pinMode(led1, OUTPUT);     
+  pinMode(led2, OUTPUT);     
+  pinMode(led3, OUTPUT);   
 
     // initialize the ethernet device
     Ethernet.begin(mac, ip, myDns, gateway, subnet);
@@ -134,7 +140,11 @@ void loop()
                 Serial.print(", State = ");
                 Serial.print(state);
                 
-                digitalWrite(port, state);   // turn the LED on (HIGH is the voltage level)
+                if (state)
+                  digitalWrite(port, HIGH);   // turn the LED on (HIGH is the voltage level)
+                else
+                  digitalWrite(port, LOW);   // turn the LED off (LOW is the voltage level)
+                  
                 received_command = "";
             }
         }
