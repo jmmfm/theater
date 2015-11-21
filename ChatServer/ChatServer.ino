@@ -50,7 +50,8 @@ void setup()
     server.begin();
     // Open serial communications and wait for port to open:
     Serial.begin(9600);
-    while (!Serial) {
+    while (!Serial)
+    {
         ; // wait for serial port to connect. Needed for native USB port only
     }
 
@@ -88,7 +89,7 @@ void loop()
             received_command += thisChar;
 
             // echo the bytes back to the client:
-            server.write(thisChar);
+//          server.write(thisChar);
 
             // echo the bytes to the server as well:
             Serial.write(thisChar);
@@ -97,6 +98,7 @@ void loop()
             int v = thisChar;
             Serial.print("Int value = ");
             Serial.println(v);
+            
 // ------------------ JSON EXAMPLE --------------------
 // {
 //     "sensor":"gps",
@@ -112,40 +114,48 @@ void loop()
 
             if ( thisChar == 10 )   // Carriage return
             {
-                char json[] = "{\"port\":\"002\",\"command\":1}";
+//              char json[] = "{\"port\":\"002\",\"command\":1}";
 
-/*
-                JsonObject& root = jsonBuffer.parseObject(json);
-                if (!root.success()) {
-                  Serial.println("parseObject() failed");
-                  return;
-                }
-
-*/              
                 Serial.print("Received command : ");
                 Serial.println(received_command);
                 JsonObject& root = jsonBuffer.parseObject(received_command);
-                if (!root.success()) {
+                
+                if (!root.success())
+                {
                   Serial.println("parseObject() failed");
                   received_command = "";
-                  return;
                 }
-
-
-                short port    = root["port"];
-                boolean state = root["command"];
-                Serial.println("");
-                Serial.print("Port = ");
-                Serial.print(port);
-                Serial.print(", State = ");
-                Serial.print(state);
-                
-                if (state)
-                  digitalWrite(port, HIGH);   // turn the LED on (HIGH is the voltage level)
                 else
-                  digitalWrite(port, LOW);   // turn the LED off (LOW is the voltage level)
+                {
+                  short port    = root["port"];
+                  boolean state = root["command"];
+                  Serial.println("");
+                  Serial.print("Port = ");
+                  Serial.print(port);
+                  Serial.print(", State = ");
+                  Serial.print(state);
+
+                  char p[3];
+                
+                  if (state)
+                  {
+                    digitalWrite(port, HIGH);   // turn the LED on (HIGH is the voltage level)
+                    server.write("Led ");
+                    sprintf(p, "%d", port);
+                    server.write(p);
+                    server.write(" ligado.\n");
+                  }
+                  else
+                  {
+                    digitalWrite(port, LOW);   // turn the LED off (LOW is the voltage level)
+                    server.write("Led ");
+                    sprintf(p, "%d", port);
+                    server.write(p);
+                    server.write(" desligado.\n");
+                  }
                   
-                received_command = "";
+                  received_command = "";
+                }
             }
         }
     }
