@@ -39,10 +39,10 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 
 void setup()
 {
-  // initialize the digital pin as an output.
-  pinMode(led1, OUTPUT);     
-  pinMode(led2, OUTPUT);     
-  pinMode(led3, OUTPUT);   
+    // initialize the digital pin as an output.
+    pinMode(led1, OUTPUT);
+    pinMode(led2, OUTPUT);
+    pinMode(led3, OUTPUT);
 
     // initialize the ethernet device
     Ethernet.begin(mac, ip, myDns, gateway, subnet);
@@ -59,7 +59,6 @@ void setup()
     Serial.println(Ethernet.localIP());
 }
 
-char json[500] = "";
 StaticJsonBuffer<200> jsonBuffer;
 String received_command = "";
 
@@ -85,7 +84,6 @@ void loop()
             // read the bytes incoming from the client:
             char thisChar = client.read();
 
-            strncat(json, &thisChar, (sizeof(json) - strlen(json)) );
             received_command += thisChar;
 
             // echo the bytes back to the client:
@@ -98,7 +96,7 @@ void loop()
             int v = thisChar;
             Serial.print("Int value = ");
             Serial.println(v);
-            
+
 // ------------------ JSON EXAMPLE --------------------
 // {
 //     "sensor":"gps",
@@ -119,42 +117,44 @@ void loop()
                 Serial.print("Received command : ");
                 Serial.println(received_command);
                 JsonObject& root = jsonBuffer.parseObject(received_command);
-                
+
                 if (!root.success())
                 {
-                  Serial.println("parseObject() failed");
-                  received_command = "";
+                    Serial.println("parseObject() failed");
+                    received_command = "";
                 }
                 else
                 {
-                  short port    = root["port"];
-                  boolean state = root["command"];
-                  Serial.println("");
-                  Serial.print("Port = ");
-                  Serial.print(port);
-                  Serial.print(", State = ");
-                  Serial.print(state);
+                    short port    = root["port"];
+                    boolean state = root["command"];
+                    Serial.println("");
+                    Serial.print("Port = ");
+                    Serial.print(port);
+                    Serial.print(", State = ");
+                    Serial.print(state);
 
-                  char p[3];
-                
-                  if (state)
-                  {
-                    digitalWrite(port, HIGH);   // turn the LED on (HIGH is the voltage level)
-                    server.write("Led ");
-                    sprintf(p, "%d", port);
-                    server.write(p);
-                    server.write(" ligado.\n");
-                  }
-                  else
-                  {
-                    digitalWrite(port, LOW);   // turn the LED off (LOW is the voltage level)
-                    server.write("Led ");
-                    sprintf(p, "%d", port);
-                    server.write(p);
-                    server.write(" desligado.\n");
-                  }
-                  
-                  received_command = "";
+                    char p[3];
+
+                    if (state)
+                    {
+                        digitalWrite(port, HIGH);    // turn the LED on (HIGH is the voltage level)
+                        // write back to client
+                        server.write("Led ");
+                        sprintf(p, "%d", port);        // convert int to string
+                        server.write(p);
+                        server.write(" ligado.\n");
+                    }
+                    else
+                    {
+                        digitalWrite(port, LOW);    // turn the LED off (LOW is the voltage level)
+                        // Write back to client
+                        server.write("Led ");
+                        sprintf(p, "%d", port);        // convert int to string
+                        server.write(p);
+                        server.write(" desligado.\n");
+                    }
+
+                    received_command = "";
                 }
             }
         }
