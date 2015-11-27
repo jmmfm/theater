@@ -20,21 +20,21 @@
 #include <SPI.h>
 #include <Ethernet.h>
 
-int led3 = 2;
-int led2 = 3;
+int led3 = 6;
+int led2 = 5;
 int led1 = 4;
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network.
 // gateway and subnet are optional:
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip      (192, 168,   1, 177);
-IPAddress myDns   (192, 168,   1,   1);
-IPAddress gateway (192, 168,   1,   1);
-IPAddress subnet  (255, 255,   0,   0);
+IPAddress ip      ( 10,  50,  16, 100);
+IPAddress myDns   ( 10,  50,  16,   1);
+IPAddress gateway ( 10,  50,  16,   1);
+IPAddress subnet  (255, 255, 252,   0);
 
 // telnet defaults to port 23
-EthernetServer server(23);
+EthernetServer server(80);
 boolean alreadyConnected = false; // whether or not the client was connected previously
 
 void setup()
