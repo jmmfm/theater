@@ -25,7 +25,7 @@ PIN 10,11,12,13 are used by the Ethernet (I2C)
 #include <DmxSimple.h>
 
 #define MAX_LAMPS 5
-#define PACKET_MAX_SIZE 64  // it is expected for 5 lamps and DMX one string with 
+//#define PACKET_MAX_SIZE 64  // it is expected for 5 lamps and DMX one string with 
 
 
 // Enter a MAC address and IP address for your controller below.
@@ -38,7 +38,7 @@ IPAddress ip(169,254,248,212);  //  169.254.248.212   (for copying purposes beca
 unsigned int localPort = 8888;      // local port to listen on
 
 // buffers for receiving and sending data
-char packetBuffer[PACKET_MAX_SIZE];                 // buffer to hold incoming packet,
+char packetBuffer[UDP_TX_PACKET_MAX_SIZE];          // buffer to hold incoming packet,
 char ReplyBuffer[] = "acknowledged";                // a string to send back when one UDP packet is received
 char ReplyInfo[] = "{'simple_lamps':5,'DMX':1}";    // This is some JSON string to reply in case of info request from the server side (can be "intensity_lamps", "simple_lamps" and "DMX")
 short lamps[MAX_LAMPS] = {4,6,7,8,9};               // PIN 5 CANNOT BE USED BECAUSE IT IS USED BY DMX CONTROLL
@@ -46,20 +46,46 @@ short lamps[MAX_LAMPS] = {4,6,7,8,9};               // PIN 5 CANNOT BE USED BECA
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
 
+
+
+
+
+char * deblank(char *str)
+{
+    char *out = str, *put = str;
+    for(; *str != '\0'; ++str)
+    {
+        if(*str != ' ') *put++ = *str;
+    }
+    *put = '\0';
+    return out;
+}
+
+
+
+
+
+
+
 void setup()
 {
     // led ports configuration
     for (short i=0; i<MAX_LAMPS; i++) pinMode(lamps[i], OUTPUT);
-
+    
     // start the Ethernet and UDP:
     Ethernet.begin(mac, ip);
     Udp.begin(localPort);
-
+    
     Serial.begin(9600);
-    Serial.print("PACKET_MAX_SIZE = ");
-    Serial.println(PACKET_MAX_SIZE);
+    Serial.print("UDP_TX_PACKET_MAX_SIZE = ");
+    Serial.println(UDP_TX_PACKET_MAX_SIZE);
 }
 
+
+
+bool DMX_cha = false, DMX_val = false;
+short DEBUG = 0;
+short channel, value;
 
 void loop()
 {
@@ -67,26 +93,44 @@ void loop()
     int packetSize = Udp.parsePacket();
     if (packetSize)
     {
-        Serial.print("Received packet of size ");
-        Serial.println(packetSize);
-        Serial.print("From ");
-        IPAddress remote = Udp.remoteIP();
-        for (int i = 0; i < 4; i++)
+        // --- DEBUG LEVEL 1 ---
+        if (DEBUG >= 1)
         {
-            Serial.print(remote[i], DEC);
-            if (i < 3) Serial.print(".");
+            Serial.print("Received packet of size ");
+            Serial.println(packetSize);
+            Serial.print("From ");
+            IPAddress remote = Udp.remoteIP();
+            for (int i = 0; i < 4; i++)
+            {
+                Serial.print(remote[i], DEC);
+                if (i < 3) Serial.print(".");
+            }
+            
+            Serial.print(", port ");
+            Serial.println(Udp.remotePort());
         }
-
-        Serial.print(", port ");
-        Serial.println(Udp.remotePort());
+        // --- END DEBUG ---
 
         // read the packet into packetBufffer
         Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-        Serial.println("Contents:");
-        Serial.println(packetBuffer);
+        // --- DEBUG LEVEL 1 ---
+        if (DEBUG >= 1)
+        {
+            Serial.print("Contents:");
+            Serial.println(packetBuffer);
+        }
+        // --- END DEBUG ---
+
 
         if (strcmp(packetBuffer,"info") == 0)
         {
+            // --- DEBUG LEVEL 2 ---
+            if (DEBUG >=2)
+            {
+                Serial.print("Reply: ");
+                Serial.println(ReplyInfo);
+            }
+            // --- END DEBUG ---
             Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
             Udp.write(ReplyInfo);
             Udp.endPacket();
@@ -113,29 +157,127 @@ void loop()
                     ++separator;
                     String val = separator;
             
-                    // Do something with cmd and val
-                    Serial.print("command = ");
-                    Serial.println(cmd);
-                    Serial.print("value = ");
-                    Serial.println(val);        
+                    // Do something with cmd and val ---------------------------------------
+                    
+//                    Serial.print("command = ");
+//                    Serial.println(cmd);
+//                    Serial.print("value = ");
+//                    Serial.println(val);
+                    if (command[0] == 'L')
+                    {
+                        if (atoi(val.c_str()))
+                        {
+                            // --- DEBUG LEVEL 2 ---
+                            if (DEBUG >= 2)
+                            {
+                                Serial.print("port ");
+                                Serial.print(lamps[command[1]-'0'-1]);
+                                Serial.println(" HIGH");
+                            }
+                            // --- END DEBUG ---
+                            digitalWrite( lamps[command[1]-'0'-1], HIGH);
+                        }
+                        else
+                        {
+                            // --- DEBUG LEVEL 2 ---
+                            if (DEBUG >= 2)
+                            {
+                                Serial.print("port ");
+                                Serial.print(lamps[command[1]-'0'-1]);
+                                Serial.println(" LOW");
+                            }
+                            // --- END DEBUG ---
+                            digitalWrite( lamps[command[1]-'0'-1], LOW );
+                        }
+                    }
+                    else
+                    {
+                        if(strcmp(command,"DMX_cha") == 0)
+                        {
+                            // --- DEBUG LEVEL 2 ---
+                            if (DEBUG >= 2)
+                            {
+                                Serial.print("Selecting DMX channel: ");
+                                Serial.println(val);
+                            }
+                            // --- END DEBUG ---
+                            DMX_cha = true;
+                            channel = atoi(val.c_str());
+                        }
+                        else if (strcmp(command,"DMX_val") == 0)
+                        {
+                            // --- DEBUG LEVEL 2 ---
+                            if (DEBUG >= 2)
+                            {
+                                Serial.print("Selecting DMX value  : ");
+                                Serial.println(val);
+                            }
+                            // --- END DEBUG ---
+                            DMX_val = true;
+                            value = atoi(val.c_str());
+                        }
+                        else if (strcmp(command,"debug") == 0)
+                        {
+                            if (atoi(val.c_str()))
+                            {
+                                Serial.println("DEBUG mode ON.");
+                                DEBUG = atoi(val.c_str());
+                            }
+                            else
+                            {
+                                Serial.println("DEBUG mode OFF");
+                                DEBUG = false;
+                            }
+                        }
+                        else
+                        {
+                            // --- DEBUG LEVEL 1 ---
+                            if (DEBUG >= 1) Serial.println("Wrong command!!");
+                            // --- END DEBUG ---
+                            Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+                            Udp.write("NOK");
+                            Udp.endPacket();
+                        }
+
+                        // --- DEBUG LEVEL 3 ---
+                        if (DEBUG >= 3)
+                        {
+                            Serial.print("DMX_cha = ");
+                            Serial.print(DMX_cha);
+                            Serial.print(", DMX_val = ");
+                            Serial.println(DMX_val);
+                        }
+                        // --- END DEBUG ---
+
+                        if (DMX_cha==true && DMX_val==true)
+                        {
+                            // --- DEBUG LEVEL 2 ---
+                            if (DEBUG >= 2)
+                            {
+                                Serial.print("DMX - channel ");
+                                Serial.print(channel);
+                                Serial.print(": ");
+                                Serial.println(value);
+                            }
+                            // --- END DEBUG ---
+                            
+                            DmxSimple.write(channel, value);
+                            DMX_cha = false;
+                            DMX_val = false;
+                        }
+                    }
                 }
+                
                 // Find the next command in input string
                 command = strtok(NULL, ",");
             }
-            
-
-//            DmxSimple.write(channel, value);
-
-            
-            Serial.println("--------------------------");
         }
         
-
-
-
         memset(packetBuffer, 0, UDP_TX_PACKET_MAX_SIZE);
+        
+        if (DEBUG) Serial.println("--------------------------");
     }
-    delay(10);
+    delay(5);
 }
 
 
