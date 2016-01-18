@@ -31,17 +31,16 @@ PIN 10,11,12,13 are used by the Ethernet (I2C)
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-//IPAddress ip(192, 168,  1, 177);
-IPAddress ip(169,254,248,212);  //  169.254.248.212   (for copying purposes because it is defined with commas instead of points ".")
-//IPAddress ip(10,50,19,212);
+
 
 unsigned int localPort = 8888;      // local port to listen on
 
 // buffers for receiving and sending data
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];          // buffer to hold incoming packet,
-char ReplyBuffer[] = "acknowledged";                // a string to send back when one UDP packet is received
-char ReplyInfo[] = "{'simple_lamps':5,'DMX':1}";    // This is some JSON string to reply in case of info request from the server side (can be "intensity_lamps", "simple_lamps" and "DMX")
-short lamps[MAX_LAMPS] = {4,6,7,8,9};               // PIN 5 CANNOT BE USED BECAUSE IT IS USED BY DMX CONTROLL
+char packetBuffer[UDP_TX_PACKET_MAX_SIZE];         // buffer to hold incoming packet,
+//char ReplyBuffer[] = "acknowledged";             // a string to send back when one UDP packet is received
+char ReplyInfo[] = "{'simple_lamps':5,'DMX':1}";   // This is some JSON string to reply in case of info request from the server side (can be "intensity_lamps", "simple_lamps" and "DMX")
+byte lamps[MAX_LAMPS] = {4,6,7,8,9};               // PIN 5 CANNOT BE USED BECAUSE IT IS USED BY DMX CONTROLL
+int lamps_status[MAX_LAMPS] = {0,0,0,0,0};         // this is used to save the status of the lamps everytime that they change.
 
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
@@ -65,16 +64,26 @@ char * deblank(char *str)
 
 
 
+void loadEthernetConfigurations(IPAddress newIP)
+{
+    // Start the Ethernet and UDP
+    Ethernet.begin(mac, newIP);
+    Udp.begin(localPort);
+}
+
+
 
 
 void setup()
 {
     // led ports configuration
     for (short i=0; i<MAX_LAMPS; i++) pinMode(lamps[i], OUTPUT);
+
+    //IPAddress ip(192, 168,   1, 177);
+    //IPAddress ip( 10,  50,  19, 212);
+    IPAddress ip(169, 254, 248, 212);  //  169.254.248.212   (for copying purposes because it is defined with commas instead of points ".")
     
-    // start the Ethernet and UDP:
-    Ethernet.begin(mac, ip);
-    Udp.begin(localPort);
+    loadEthernetConfigurations(ip);
     
     Serial.begin(9600);
     Serial.print("UDP_TX_PACKET_MAX_SIZE = ");
@@ -84,7 +93,7 @@ void setup()
 
 
 bool DMX_cha = false, DMX_val = false;
-short DEBUG = 0;
+byte DEBUG = 0;
 short channel, value;
 
 void loop()
@@ -118,6 +127,11 @@ void loop()
         {
             Serial.print("Contents:");
             Serial.println(packetBuffer);
+            
+//            Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+//            Udp.write("Contents: ");
+//            Udp.write(packetBuffer);
+//            Udp.endPacket();
         }
         // --- END DEBUG ---
 
@@ -131,8 +145,46 @@ void loop()
                 Serial.println(ReplyInfo);
             }
             // --- END DEBUG ---
+
+            // info command always returns one UDP answer
             Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
             Udp.write(ReplyInfo);
+            Udp.endPacket();
+        }
+        else if (strcmp(packetBuffer,"status") == 0)
+        {
+            // --- DEBUG LEVEL 2 ---
+            if (DEBUG >=2)
+            {
+                Serial.print("Status: ");
+                Serial.println(ReplyInfo);
+            }
+            // --- END DEBUG ---
+            
+            // Status command always returns one UDP answer
+            Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+            Udp.write("{");
+            for (int i; i<MAX_LAMPS; i++)
+            {
+                char small_buffer[6];
+                sprintf(small_buffer, "'L%d':%d", i+1,lamps_status[i]);
+                Udp.write(small_buffer);
+                // Udp.write("L");
+                // Udp.write(to_string(i+1));
+                // Uddp.write(":");
+                // Udp.write(to_string(lamps_status[i]))
+                // --- DEBUG LEVEL 2 ---
+                if (DEBUG >= 2)
+                {
+                    Serial.print(small_buffer);
+                    if (i < MAX_LAMPS - 1 )
+                        Serial.print(",");
+                }
+                
+                if (i < MAX_LAMPS - 1 )
+                    Udp.write(",");
+            }
+            Udp.write("}");
             Udp.endPacket();
         }
         else
@@ -175,7 +227,16 @@ void loop()
                                 Serial.println(" HIGH");
                             }
                             // --- END DEBUG ---
+                            
                             digitalWrite( lamps[command[1]-'0'-1], HIGH);
+                            lamps_status[command[1]-'0'-1] = atoi(val.c_str());
+
+                            // --- DEBUG LEVEL 2 ---
+                            if (DEBUG >= 2)
+                            {
+                                
+                              
+                            }
                         }
                         else
                         {
@@ -188,6 +249,7 @@ void loop()
                             }
                             // --- END DEBUG ---
                             digitalWrite( lamps[command[1]-'0'-1], LOW );
+                            lamps_status[command[1]-'0'-1] = 0;
                         }
                     }
                     else
@@ -209,7 +271,7 @@ void loop()
                             // --- DEBUG LEVEL 2 ---
                             if (DEBUG >= 2)
                             {
-                                Serial.print("Selecting DMX value  : ");
+                                Serial.print("Selecting DMX value: ");
                                 Serial.println(val);
                             }
                             // --- END DEBUG ---
@@ -222,11 +284,17 @@ void loop()
                             {
                                 Serial.println("DEBUG mode ON.");
                                 DEBUG = atoi(val.c_str());
+                                Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+                                Udp.write("DEBUG mode ON.");
+                                Udp.endPacket();
                             }
                             else
                             {
                                 Serial.println("DEBUG mode OFF");
                                 DEBUG = false;
+                                Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+                                Udp.write("DEBUG mode OFF.");
+                                Udp.endPacket();
                             }
                         }
                         else
@@ -254,14 +322,28 @@ void loop()
                             // --- DEBUG LEVEL 2 ---
                             if (DEBUG >= 2)
                             {
-                                Serial.print("DMX - channel ");
+                                Serial.print("D");
                                 Serial.print(channel);
-                                Serial.print(": ");
+                                Serial.print(":");
                                 Serial.println(value);
                             }
                             // --- END DEBUG ---
                             
                             DmxSimple.write(channel, value);
+
+                            // --- DEBUG LEVEL 2 ---
+                            if (DEBUG >= 2)
+                            {
+                                Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+                                Udp.write("D");
+                                char buf[3];
+                                Udp.write(itoa(channel,buf,10));
+                                Udp.write(":");
+                                Udp.write(itoa(value,buf,10));
+                                Udp.endPacket();
+                            }
+                            // --- END DEBUG ---
+                            
                             DMX_cha = false;
                             DMX_val = false;
                         }
